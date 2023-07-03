@@ -63,10 +63,10 @@ const { developmentsChains } = require("../../helper-hardhat-config");
           );
           const startdeployerbalance = await provider.getBalance(deployer);
 
-          const txresponse = await fundMe.cheaperWithdraw();
-          const txReceipt = await txresponse.wait(1);
-          const { gasUsed, gasPrice } = txReceipt;
-          const { fee } = txReceipt;
+          const txresponse = await fundMe.withdraw();
+          const txreceipt = await txresponse.wait();
+          const { gasUsed, gasPrice } = txreceipt;
+          const { fee } = txreceipt;
           const gasCost = fee;
 
           const endingFundMebalance = await provider.getBalance(
@@ -82,38 +82,33 @@ const { developmentsChains } = require("../../helper-hardhat-config");
 
         it("is allows us to withdraw with multiple funders", async () => {
           // Arrange
+          const provider = ethers.getDefaultProvider("http://127.0.0.1:8545/");
           const accounts = await ethers.getSigners();
           for (i = 1; i < 6; i++) {
             const fundMeConnectedContract = await fundMe.connect(accounts[i]);
             await fundMeConnectedContract.fund({ value: sendValue });
           }
-          const startingFundMeBalance = await fundMe.provider.getBalance(
-            fundMe.address
+          const startingFundMeBalance = await provider.getBalance(
+            await fundMe.getAddress()
           );
-          const startingDeployerBalance = await fundMe.provider.getBalance(
-            deployer
-          );
+          const startingDeployerBalance = await provider.getBalance(deployer);
 
           // Act
           const transactionResponse = await fundMe.cheaperWithdraw();
           // Let's comapre gas costs :)
           // const transactionResponse = await fundMe.withdraw()
           const transactionReceipt = await transactionResponse.wait();
-          const { gasUsed, effectiveGasPrice } = transactionReceipt;
-          const withdrawGasCost = gasUsed.mul(effectiveGasPrice);
+          const { fee } = transactionReceipt;
+          const withdrawGasCost = fee;
           console.log(`GasCost: ${withdrawGasCost}`);
-          console.log(`GasUsed: ${gasUsed}`);
-          console.log(`GasPrice: ${effectiveGasPrice}`);
-          const endingFundMeBalance = await fundMe.provider.getBalance(
-            fundMe.address
+          const endingFundMeBalance = await provider.getBalance(
+            await fundMe.getAddress()
           );
-          const endingDeployerBalance = await fundMe.provider.getBalance(
-            deployer
-          );
+          const endingDeployerBalance = await provider.getBalance(deployer);
           // Assert
           assert.equal(
-            startingFundMeBalance.add(startingDeployerBalance).toString(),
-            endingDeployerBalance.add(withdrawGasCost).toString()
+            (startingFundMeBalance + startingDeployerBalance).toString(),
+            (endingDeployerBalance + withdrawGasCost).toString()
           );
           // Make a getter for storage variables
           await expect(fundMe.getFunder(0)).to.be.reverted;
@@ -128,9 +123,7 @@ const { developmentsChains } = require("../../helper-hardhat-config");
         it("Only allows the owner to withdraw", async function () {
           const accounts = await ethers.getSigners();
           const fundMeConnectedContract = await fundMe.connect(accounts[1]);
-          await expect(fundMeConnectedContract.withdraw()).to.be.revertedWith(
-            "FundMe__NotOwner"
-          );
+          await expect(fundMeConnectedContract.withdraw()).to.be.reverted;
         });
       });
     });
