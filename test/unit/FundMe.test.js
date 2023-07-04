@@ -10,15 +10,16 @@ const {
   duration,
 } = require("@nomicfoundation/hardhat-network-helpers/dist/src/helpers/time");
 const { developmentsChains } = require("../../helper-hardhat-config");
+require("dotenv").config();
 
 !developmentsChains.includes(network.name)
   ? describe.skip
   : describe("FundME", function () {
       let fundMe, deployer;
       let mockV3Aggregator;
-      let sendValue = "10000000000000000000";
+      let sendValue = "100000000000000000";
       beforeEach(async function () {
-        deployer = (await getNamedAccounts(10)).deployer;
+        deployer = (await getNamedAccounts()).deployer;
         await deployments.fixture("all");
         fundMe = await ethers.getContract("FundMe");
         mockV3Aggregator = await ethers.getContract("MockV3Aggregator");
@@ -53,9 +54,8 @@ const { developmentsChains } = require("../../helper-hardhat-config");
       describe("withdraw", function () {
         beforeEach(async function () {
           await fundMe.fund({ value: sendValue });
-          console.log(await fundMe.getAddress());
         });
-        ``;
+
         it("withdraw ETH from a single funder", async function () {
           const provider = ethers.getDefaultProvider("http://127.0.0.1:8545/");
           const startingbalance = await provider.getBalance(
@@ -64,10 +64,12 @@ const { developmentsChains } = require("../../helper-hardhat-config");
           const startdeployerbalance = await provider.getBalance(deployer);
 
           const txresponse = await fundMe.withdraw();
-          const txreceipt = await txresponse.wait();
+          // const { blockhash } = txresponse;
+          // await provider.waitForTransaction(blockhash);
+          const txreceipt = await txresponse.wait(txresponse);
           const { gasUsed, gasPrice } = txreceipt;
           const { fee } = txreceipt;
-          const gasCost = fee;
+          const gasCost = BigInt(fee);
 
           const endingFundMebalance = await provider.getBalance(
             await fundMe.getAddress()
@@ -106,12 +108,13 @@ const { developmentsChains } = require("../../helper-hardhat-config");
           );
           const endingDeployerBalance = await provider.getBalance(deployer);
           // Assert
+          assert.equal(endingFundMeBalance.toString(), "0");
           assert.equal(
             (startingFundMeBalance + startingDeployerBalance).toString(),
             (endingDeployerBalance + withdrawGasCost).toString()
           );
           // Make a getter for storage variables
-          await expect(fundMe.getFunder(0)).to.be.reverted;
+          await expect(fundMe.getFunders(0)).to.be.reverted;
 
           for (i = 1; i < 6; i++) {
             assert.equal(
